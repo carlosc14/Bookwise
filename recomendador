@@ -1,0 +1,47 @@
+import pandas as pd
+
+# Datos de ejemplo: clientes, libros y calificaciones (asumimos que las calificaciones son implícitas en la compra)
+data = {
+    'cliente_id': [1, 1, 1, 2, 2, 3, 3, 4],
+    'libro_id': [101, 102, 103, 101, 104, 102, 105, 103],
+    'calificacion': [5, 4, 5, 4, 5, 4, 5, 3]  # Calificaciones de 1 a 5
+}
+
+df = pd.DataFrame(data)
+print(df)
+
+from surprise import Dataset, Reader, SVD
+from surprise.model_selection import train_test_split
+from surprise import accuracy
+
+# Preparar los datos para Surprise
+reader = Reader(rating_scale=(1, 5))
+data = Dataset.load_from_df(df[['cliente_id', 'libro_id', 'calificacion']], reader)
+
+# Dividir los datos en conjunto de entrenamiento y prueba
+trainset, testset = train_test_split(data, test_size=0.25)
+
+# Usar el algoritmo SVD (Singular Value Decomposition) para las recomendaciones
+algo = SVD()
+
+# Entrenar el modelo
+algo.fit(trainset)
+
+# Evaluar el modelo en el conjunto de prueba
+predictions = algo.test(testset)
+accuracy.rmse(predictions)
+
+# Recomendar libros para un cliente específico
+cliente_id = 1
+libros_cliente = df[df['cliente_id'] == cliente_id]['libro_id'].tolist()
+
+# Predecir la calificación para todos los libros no comprados por el cliente
+libros_posibles = df['libro_id'].unique()
+libros_no_comprados = [libro for libro in libros_posibles if libro not in libros_cliente]
+
+predicciones = [algo.predict(cliente_id, libro_id) for libro_id in libros_no_comprados]
+predicciones.sort(key=lambda x: x.est, reverse=True)
+
+# Mostrar las 3 mejores recomendaciones
+for pred in predicciones[:3]:
+    print(f"Libro ID: {pred.iid}, Predicción de calificación: {pred.est}")
